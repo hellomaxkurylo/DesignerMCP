@@ -1,7 +1,8 @@
 {
-	"name": "remote-mcp-server-authless",
-	"version": "0.0.0",
+	"name": "webflow-mcp-server",
+	"version": "2.0.0",
 	"private": true,
+	"description": "Model Context Protocol server for controlling Webflow Designer",
 	"scripts": {
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",

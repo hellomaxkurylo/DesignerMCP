@@ -1,50 +1,72 @@
-# Building a Remote MCP Server on Cloudflare (Without Auth)
+# Webflow MCP Server
 
-This example allows you to deploy a remote MCP server that doesn't require authentication on Cloudflare Workers. 
+This is a Model Context Protocol (MCP) server for controlling Webflow Designer, powered by Cloudflare's agents SDK.
 
-## Get started: 
+## Features
 
-[![Deploy to Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-authless)
+- **29 Webflow Designer Tools**: Create elements, manage text content, apply CSS classes, work with components, and more
+- **Frontend Bridge**: Connects MCP clients (like Cursor) to the Webflow Designer extension
+- **Stateful Connections**: Uses Cloudflare Durable Objects for persistent state management
+- **Command Queue System**: Handles asynchronous communication between MCP server and frontend
+- **CORS-enabled**: Fully configured for browser compatibility
 
-This will deploy your MCP server to a URL like: `remote-mcp-server-authless.<your-account>.workers.dev/sse`
+## Available Tools
 
-Alternatively, you can use the command line below to get the remote MCP Server created on your local machine:
+The server provides 29 tools for Webflow Designer including:
+
+### Element Management
+- `create_element` - Create new elements (Sections, DivBlocks, Headings, etc.)
+- `get_selected_element` - Get details of currently selected element
+- `set_selected_element` - Select an element by ID
+- `remove_element` - Remove an element
+- `get_all_elements` - List all elements on the page
+
+### Text Content
+- `set_text_content` - Set text content of an element
+- `get_text_content` - Get text content of an element
+
+### CSS Classes
+- `create_semantic_class` - Create new CSS classes with styles
+- `apply_semantic_class` - Apply classes to elements
+- `update_semantic_class` - Update existing classes
+- `list_semantic_classes` - List available classes
+
+### Components & Assets
+- `create_component_instance` - Create component instances
+- `list_components` - List available components
+- `upload_asset` - Upload images and other assets
+- `set_image_asset` - Set image sources
+
+And many more...
+
+## Endpoints
+
+- `/sse` - SSE connection for MCP clients
+- `/mcp/bridge/events` - Frontend bridge polling endpoint
+- `/mcp/command-result` - Command result submission
+- `/status` - Server status
+- `/health` - Health check
+
+## Development
+
 ```bash
-npm create cloudflare@latest -- my-mcp-server --template=cloudflare/ai/demos/remote-mcp-authless
+npm install
+npm run dev
 ```
 
-## Customizing your MCP Server
+## Deployment
 
-To add your own [tools](https://developers.cloudflare.com/agents/model-context-protocol/tools/) to the MCP server, define each tool inside the `init()` method of `src/index.ts` using `this.server.tool(...)`. 
-
-## Connect to Cloudflare AI Playground
-
-You can connect to your MCP server from the Cloudflare AI Playground, which is a remote MCP client:
-
-1. Go to https://playground.ai.cloudflare.com/
-2. Enter your deployed MCP server URL (`remote-mcp-server-authless.<your-account>.workers.dev/sse`)
-3. You can now use your MCP tools directly from the playground!
-
-## Connect Claude Desktop to your MCP server
-
-You can also connect to your remote MCP server from local MCP clients, by using the [mcp-remote proxy](https://www.npmjs.com/package/mcp-remote). 
-
-To connect to your MCP server from Claude Desktop, follow [Anthropic's Quickstart](https://modelcontextprotocol.io/quickstart/user) and within Claude Desktop go to Settings > Developer > Edit Config.
-
-Update with this configuration:
-
-```json
-{
-  "mcpServers": {
-    "calculator": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "http://localhost:8787/sse"  // or remote-mcp-server-authless.your-account.workers.dev/sse
-      ]
-    }
-  }
-}
+```bash
+npm run deploy
 ```
 
-Restart Claude and you should see the tools become available. 
+## Usage with Webflow Designer Extension
+
+1. Install the Webflow Designer extension in your browser
+2. Open Webflow Designer
+3. The extension will automatically connect to this MCP server
+4. Use your MCP client (e.g., Cursor) to control Webflow Designer
+
+## Architecture
+
+This server uses Cloudflare's agents SDK with Durable Objects for stateful connections and persistent command queues. The bridge architecture allows asynchronous communication between MCP clients and the Webflow Designer extension. 
