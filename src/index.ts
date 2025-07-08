@@ -736,56 +736,124 @@ export class WebflowMCP extends McpAgent<Env, State> {
 	}
 	
 	private async handleBridgeEvents(corsHeaders: Record<string, string>): Promise<Response> {
+		console.log('🔌 Setting up SSE connection for frontend bridge');
+		
 		// Update frontend connection status
 		this.setState({
 			...(this.state || this.initialState),
 			frontendConnected: true,
 			lastFrontendPing: Date.now(),
 		});
-		
-		// Ensure commandQueue is a Map
-		const commandQueue = this.state?.commandQueue instanceof Map 
-			? this.state.commandQueue 
-			: new Map<string, Command>();
-		
-		// Get pending commands
-		const pendingCommands = Array.from(commandQueue.values())
-			.filter(cmd => !cmd.processed);
-		
-		if (pendingCommands.length > 0) {
-			// Return the oldest pending command
-			const command = pendingCommands[0];
-			
-			// Mark as processed
-			const storedCommand = commandQueue.get(command.id);
-			if (storedCommand) {
-				storedCommand.processed = true;
-				this.setState({
-					...this.state,
-					commandQueue: commandQueue,
-				});
+
+		const encoder = new TextEncoder();
+		let isConnectionOpen = true;
+
+		const stream = new ReadableStream({
+			start: (controller) => {
+				console.log('📡 SSE stream started for bridge events');
+
+				// Send initial connection confirmation
+				const welcomeEvent = `data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`;
+				controller.enqueue(encoder.encode(welcomeEvent));
+
+				// Function to check for pending commands and send them
+				const checkAndSendCommands = () => {
+					if (!isConnectionOpen) return;
+
+					try {
+						// Update ping timestamp
+						this.setState({
+							...(this.state || this.initialState),
+							frontendConnected: true,
+							lastFrontendPing: Date.now(),
+						});
+
+						// Ensure commandQueue is a Map
+						const commandQueue = this.state?.commandQueue instanceof Map 
+							? this.state.commandQueue 
+							: new Map<string, Command>();
+						
+						// Get pending commands
+						const pendingCommands = Array.from(commandQueue.values())
+							.filter(cmd => !cmd.processed);
+						
+						if (pendingCommands.length > 0) {
+							// Send the oldest pending command
+							const command = pendingCommands[0];
+							
+							// Mark as processed
+							const storedCommand = commandQueue.get(command.id);
+							if (storedCommand) {
+								storedCommand.processed = true;
+								this.setState({
+									...this.state,
+									commandQueue: commandQueue,
+								});
+							}
+							
+							console.log(`📤 Sending command via SSE: ${command.command} (${command.id})`);
+							
+							// Send command as SSE event
+							const eventData = JSON.stringify({
+								id: command.id,
+								command: command.command,
+								params: command.params,
+							});
+							
+							const sseEvent = `data: ${eventData}\n\n`;
+							controller.enqueue(encoder.encode(sseEvent));
+						} else {
+							// Send heartbeat to keep connection alive
+							const heartbeatData = JSON.stringify({ 
+								type: 'heartbeat',
+								timestamp: new Date().toISOString() 
+							});
+							
+							const heartbeatEvent = `data: ${heartbeatData}\n\n`;
+							controller.enqueue(encoder.encode(heartbeatEvent));
+						}
+					} catch (error) {
+						console.error('❌ Error in SSE command check:', error);
+					}
+				};
+
+				// Check for commands immediately
+				checkAndSendCommands();
+
+				// Set up interval to periodically check for commands
+				const interval = setInterval(checkAndSendCommands, 1000); // Check every second
+
+				// Cleanup function
+				const cleanup = () => {
+					console.log('🧹 Cleaning up SSE connection');
+					isConnectionOpen = false;
+					clearInterval(interval);
+					try {
+						controller.close();
+					} catch (e) {
+						// Connection might already be closed
+					}
+				};
+
+				// Set up cleanup after 5 minutes to prevent hanging connections
+				setTimeout(cleanup, 5 * 60 * 1000);
+
+				// Store cleanup for potential early termination
+				(controller as any)._cleanup = cleanup;
+			},
+
+			cancel: () => {
+				console.log('❌ SSE stream cancelled by client');
+				isConnectionOpen = false;
 			}
-			
-			// Return command to frontend
-			return new Response(JSON.stringify({
-				id: command.id,
-				command: command.command,
-				params: command.params,
-			}), {
-				headers: {
-					'Content-Type': 'application/json',
-					...corsHeaders,
-				},
-			});
-		}
-		
-		// No commands pending - return heartbeat
-		return new Response(JSON.stringify({ 
-			type: 'heartbeat',
-			timestamp: new Date().toISOString() 
-		}), {
+		});
+
+		return new Response(stream, {
 			headers: {
-				'Content-Type': 'application/json',
+				'Content-Type': 'text/event-stream',
+				'Cache-Control': 'no-cache',
+				'Connection': 'keep-alive',
+				'X-Accel-Buffering': 'no', // Disable Nginx buffering
 				...corsHeaders,
 			},
 		});
