@@ -224,7 +224,7 @@ export class WebflowMCP extends McpAgent<Env, State> {
 		const corsHeaders = {
 			'Access-Control-Allow-Origin': '*',
 			'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-			'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, mcp-protocol-version',
 		};
 		
 		// Handle CORS preflight
@@ -928,7 +928,7 @@ export default {
 		const corsHeaders = {
 			'Access-Control-Allow-Origin': '*',
 			'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-			'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, mcp-protocol-version',
 		};
 		
 		// Handle CORS preflight
